@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from src.doctors import Doctor, DoctorNotFoundError, doctor_service
 from src.patients import Patient, PatientNotFoundError, patient_service
 
+ALLOWED_APPOINTMENT_STATUSES = {"scheduled", "completed", "cancelled"}
+
 
 class DoctorUnavailableError(ValueError):
     """Raised when an appointment is requested with an unavailable doctor."""
@@ -24,6 +26,10 @@ class AppointmentAlreadyCancelledError(ValueError):
 
 class AppointmentNotScheduledError(ValueError):
     """Raised when an operation requires a scheduled appointment."""
+
+
+class InvalidAppointmentStatusError(ValueError):
+    """Raised when an unsupported appointment status is requested."""
 
 
 @dataclass(frozen=True)
@@ -81,9 +87,9 @@ class AppointmentService:
         appointment_time: time,
     ) -> Appointment:
         appointment = self.get(appointment_id)
-        if appointment.status != "scheduled":
+        if appointment.status == "completed":
             raise AppointmentNotScheduledError(
-                f"Appointment {appointment_id} is not scheduled"
+                f"Appointment {appointment_id} is completed"
             )
         rescheduled = replace(
             appointment,
@@ -92,6 +98,16 @@ class AppointmentService:
         )
         self._appointments[appointment_id] = rescheduled
         return rescheduled
+
+    def update_status(self, appointment_id: int, appointment_status: str) -> Appointment:
+        appointment = self.get(appointment_id)
+        if appointment_status not in ALLOWED_APPOINTMENT_STATUSES:
+            raise InvalidAppointmentStatusError(
+                f"Unsupported appointment status: {appointment_status}"
+            )
+        updated_appointment = replace(appointment, status=appointment_status)
+        self._appointments[appointment_id] = updated_appointment
+        return updated_appointment
 
     def reset(self) -> None:
         """Clear state; intended for test isolation."""
@@ -124,6 +140,10 @@ class AppointmentCreate(BaseModel):
 class AppointmentReschedule(BaseModel):
     date: date
     time: time
+
+
+class AppointmentStatusUpdate(BaseModel):
+    status: str
 
 
 app = FastAPI(title="Hospital Appointment API")
@@ -206,3 +226,17 @@ def reschedule_appointment(
         raise not_found(error) from error
     except AppointmentNotScheduledError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
+@app.patch("/appointments/{appointment_id}/status")
+def update_appointment_status(
+    appointment_id: int, payload: AppointmentStatusUpdate
+) -> Appointment:
+    try:
+        return appointment_service.update_status(appointment_id, payload.status)
+    except AppointmentNotFoundError as error:
+        raise not_found(error) from error
+    except InvalidAppointmentStatusError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error

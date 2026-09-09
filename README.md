@@ -1,6 +1,6 @@
 # Hospital Appointment API
 
-A small FastAPI demonstration service for creating patients and doctors, scheduling appointments, rescheduling appointments, and cancelling appointments. It uses in-memory storage only, so data is reset when the application restarts.
+A small FastAPI demonstration service for creating patients and doctors, scheduling appointments, rescheduling appointments, updating appointment statuses, and cancelling appointments. It uses in-memory storage only, so data is reset when the application restarts.
 
 This is a test and demonstration project, not a production healthcare system. Do not use it to store real patient or medical information.
 
@@ -39,6 +39,7 @@ pytest
 | `POST` | `/appointments` | Create an appointment for an available doctor. |
 | `GET` | `/appointments/{appointment_id}` | Retrieve an appointment. |
 | `PATCH` | `/appointments/{appointment_id}/reschedule` | Reschedule a scheduled appointment. |
+| `PATCH` | `/appointments/{appointment_id}/status` | Update an appointment status. |
 | `PATCH` | `/appointments/{appointment_id}/cancel` | Cancel a scheduled appointment. |
 
-Patients accept `name`, `age`, and `phone`. Doctors accept `name`, `specialty`, and `available`. Appointments accept `patient_id`, `doctor_id`, `date` (`YYYY-MM-DD`), and `time` (`HH:MM:SS`); their initial status is `scheduled`. Rescheduling accepts a new `date` and `time` and is available only while an appointment is scheduled.
+Patients accept `name`, `age`, and `phone`. Doctors accept `name`, `specialty`, and `available`. Appointments accept `patient_id`, `doctor_id`, `date` (`YYYY-MM-DD`), and `time` (`HH:MM:SS`); their initial status is `scheduled`. Rescheduling accepts a new `date` and `time` and is available only while an appointment is scheduled. Status updates accept `scheduled`, `completed`, or `cancelled`.
