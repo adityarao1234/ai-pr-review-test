@@ -14,6 +14,10 @@ class DoctorUnavailableError(ValueError):
     """Raised when an appointment is requested with an unavailable doctor."""
 
 
+class AppointmentDateInPastError(ValueError):
+    """Raised when an appointment is requested for a past date."""
+
+
 class AppointmentNotFoundError(LookupError):
     """Raised when a requested appointment does not exist."""
 
@@ -44,6 +48,7 @@ class AppointmentService:
     def create(self, patient_id: int, doctor_id: int, appointment_date: date, appointment_time: time) -> Appointment:
         patient_service.get(patient_id)
         doctor = doctor_service.get(doctor_id)
+        self._validate_new_appointment(appointment_date, doctor.available)
         if not doctor.available:
             raise DoctorUnavailableError(f"Doctor {doctor_id} is not available")
 
@@ -57,6 +62,16 @@ class AppointmentService:
         self._appointments[appointment.id] = appointment
         self._next_id += 1
         return appointment
+
+    def _validate_new_appointment(
+        self, appointment_date: date, doctor_available: bool
+    ) -> None:
+        if appointment_date < date.today():
+            raise AppointmentDateInPastError(
+                "Appointments cannot be created for a past date"
+            )
+        if doctor_available is False:
+            raise DoctorUnavailableError("Doctor is not available")
 
     def get(self, appointment_id: int) -> Appointment:
         try:
@@ -170,7 +185,7 @@ def create_appointment(payload: AppointmentCreate) -> Appointment:
         )
     except (PatientNotFoundError, DoctorNotFoundError) as error:
         raise not_found(error) from error
-    except DoctorUnavailableError as error:
+    except (AppointmentDateInPastError, DoctorUnavailableError) as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
 

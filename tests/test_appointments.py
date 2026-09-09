@@ -1,3 +1,6 @@
+from datetime import date, timedelta
+
+
 def create_patient(client):
     return client.post(
         "/patients", json={"name": "Demo Patient", "age": 29, "phone": "555-0102"}
@@ -34,6 +37,44 @@ def test_create_appointment(client):
         "time": "09:30:00",
         "status": "scheduled",
     }
+
+
+def test_create_appointment_for_future_date(client):
+    patient = create_patient(client)
+    doctor = create_doctor(client)
+    future_date = date.today() + timedelta(days=1)
+
+    response = client.post(
+        "/appointments",
+        json={
+            "patient_id": patient["id"],
+            "doctor_id": doctor["id"],
+            "date": future_date.isoformat(),
+            "time": "09:30:00",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["date"] == future_date.isoformat()
+
+
+def test_create_appointment_rejects_past_date(client):
+    patient = create_patient(client)
+    doctor = create_doctor(client)
+    past_date = date.today() - timedelta(days=1)
+
+    response = client.post(
+        "/appointments",
+        json={
+            "patient_id": patient["id"],
+            "doctor_id": doctor["id"],
+            "date": past_date.isoformat(),
+            "time": "09:30:00",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Appointments cannot be created for a past date"
 
 
 def test_appointment_requires_existing_patient(client):
