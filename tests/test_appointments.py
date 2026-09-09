@@ -98,3 +98,62 @@ def test_cannot_cancel_appointment_twice(client):
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Appointment 1 is already cancelled"
+
+
+def test_reschedule_appointment_preserves_other_fields(client):
+    patient = create_patient(client)
+    doctor = create_doctor(client)
+    appointment = client.post(
+        "/appointments",
+        json={
+            "patient_id": patient["id"],
+            "doctor_id": doctor["id"],
+            "date": "2030-01-15",
+            "time": "09:30:00",
+        },
+    ).json()
+
+    response = client.patch(
+        f"/appointments/{appointment['id']}/reschedule",
+        json={"date": "2030-02-20", "time": "14:45:00"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **appointment,
+        "date": "2030-02-20",
+        "time": "14:45:00",
+    }
+
+
+def test_reschedule_nonexistent_appointment_returns_not_found(client):
+    response = client.patch(
+        "/appointments/999/reschedule",
+        json={"date": "2030-02-20", "time": "14:45:00"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Appointment 999 was not found"
+
+
+def test_cannot_reschedule_cancelled_appointment(client):
+    patient = create_patient(client)
+    doctor = create_doctor(client)
+    appointment = client.post(
+        "/appointments",
+        json={
+            "patient_id": patient["id"],
+            "doctor_id": doctor["id"],
+            "date": "2030-01-15",
+            "time": "09:30:00",
+        },
+    ).json()
+    client.patch(f"/appointments/{appointment['id']}/cancel")
+
+    response = client.patch(
+        f"/appointments/{appointment['id']}/reschedule",
+        json={"date": "2030-02-20", "time": "14:45:00"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Appointment 1 is not scheduled"
