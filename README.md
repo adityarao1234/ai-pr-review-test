@@ -41,4 +41,4 @@ pytest
 | `PATCH` | `/appointments/{appointment_id}/reschedule` | Reschedule a scheduled appointment. |
 | `PATCH` | `/appointments/{appointment_id}/cancel` | Cancel a scheduled appointment. |
 
-Patients accept `name`, `age`, and `phone`. Doctors accept `name`, `specialty`, and `available`. Appointments accept `patient_id`, `doctor_id`, `date` (`YYYY-MM-DD`), and `time` (`HH:MM:SS`); their initial status is `scheduled`. Rescheduling accepts a new `date` and `time` and is available only while an appointment is scheduled.
+Patients accept `name`, `age`, and `phone`. Doctors accept `name`, `specialty`, and `available`. Appointments accept `patient_id`, `doctor_id`, `date` (`YYYY-MM-DD`), and `time` (`HH:MM:SS`); their initial status is `scheduled`. Appointment creation rejects dates in the past. Rescheduling accepts a new `date` and `time` and is available only while an appointment is scheduled.
