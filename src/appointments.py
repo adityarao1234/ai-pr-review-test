@@ -22,6 +22,10 @@ class AppointmentAlreadyCancelledError(ValueError):
     """Raised when cancellation is requested twice."""
 
 
+class AppointmentNotScheduledError(ValueError):
+    """Raised when an operation requires a scheduled appointment."""
+
+
 @dataclass(frozen=True)
 class Appointment:
     id: int
@@ -70,6 +74,25 @@ class AppointmentService:
         self._appointments[appointment_id] = cancelled
         return cancelled
 
+    def reschedule(
+        self,
+        appointment_id: int,
+        appointment_date: date,
+        appointment_time: time,
+    ) -> Appointment:
+        appointment = self.get(appointment_id)
+        if appointment.status != "scheduled":
+            raise AppointmentNotScheduledError(
+                f"Appointment {appointment_id} is not scheduled"
+            )
+        rescheduled = replace(
+            appointment,
+            date=appointment_date,
+            time=appointment_time,
+        )
+        self._appointments[appointment_id] = rescheduled
+        return rescheduled
+
     def reset(self) -> None:
         """Clear state; intended for test isolation."""
         self._appointments.clear()
@@ -94,6 +117,11 @@ class DoctorCreate(BaseModel):
 class AppointmentCreate(BaseModel):
     patient_id: int
     doctor_id: int
+    date: date
+    time: time
+
+
+class AppointmentReschedule(BaseModel):
     date: date
     time: time
 
@@ -161,4 +189,20 @@ def cancel_appointment(appointment_id: int) -> Appointment:
     except AppointmentNotFoundError as error:
         raise not_found(error) from error
     except AppointmentAlreadyCancelledError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
+@app.patch("/appointments/{appointment_id}/reschedule")
+def reschedule_appointment(
+    appointment_id: int, payload: AppointmentReschedule
+) -> Appointment:
+    try:
+        return appointment_service.reschedule(
+            appointment_id=appointment_id,
+            appointment_date=payload.date,
+            appointment_time=payload.time,
+        )
+    except AppointmentNotFoundError as error:
+        raise not_found(error) from error
+    except AppointmentNotScheduledError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
